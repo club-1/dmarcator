@@ -1,4 +1,4 @@
-module github.com/club-1/dmarc-reject
+module github.com/club-1/dmarcator
 
 go 1.22.0
 
