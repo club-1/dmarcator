@@ -35,7 +35,7 @@ import (
 var (
 	// TODO: make these variables configurable, maybe based on a TOML config file?
 	identity      string   = "mail.club1.fr"
-	listenURI     string   = "unix:///var/spool/postfix/dmarc-reject/dmarc-reject.sock"
+	listenURI     string   = "unix:///var/spool/postfix/dmarcator/dmarcator.sock"
 	rejectDomains []string = []string{"gmail.com"}
 	rejectFmt     string   = "5.7.1 rejected because of DMARC failure for %s despite p=none"
 	umask         int      = 0002
