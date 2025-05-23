@@ -40,9 +40,10 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 	}
 	id, results, err := authres.Parse(value)
 	if err != nil {
-		// Reject in case we can't parse, an AR header, because we cannot
+		// simply log in case we can't parse, an AR header, because we cannot
 		// handle it better than that.
-		return milter.RespReject, err
+		log.Printf("dkim-milter: failed to parse header %q: %v", name+": ", value, err)
+		return milter.RespContinue, nil
 	}
 
 	if !strings.EqualFold(id, identity) {
