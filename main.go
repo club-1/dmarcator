@@ -80,8 +80,7 @@ func main() {
 		NewMilter: func() milter.Milter {
 			return &Session{}
 		},
-		Actions:  milter.OptAddHeader | milter.OptChangeHeader,
-		Protocol: milter.OptNoConnect | milter.OptNoHelo | milter.OptNoBody | milter.OptNoMailFrom | milter.OptNoRcptTo,
+		Protocol: milter.OptNoConnect | milter.OptNoHelo | milter.OptNoMailFrom | milter.OptNoRcptTo | milter.OptNoEOH | milter.OptNoBody,
 	}
 
 	ln, err := net.Listen(listenNetwork, listenAddr)
