@@ -95,11 +95,10 @@ func main() {
 		}
 	}
 
-	parts := strings.SplitN(listenURI, "://", 2)
-	if len(parts) != 2 {
+	network, address, found := strings.Cut(listenURI, "://")
+	if !found {
 		log.Fatal("Invalid listen URI")
 	}
-	listenNetwork, listenAddr := parts[0], parts[1]
 
 	s := milter.Server{
 		NewMilter: func() milter.Milter {
@@ -108,7 +107,7 @@ func main() {
 		Protocol: milter.OptNoConnect | milter.OptNoHelo | milter.OptNoMailFrom | milter.OptNoRcptTo | milter.OptNoEOH | milter.OptNoBody,
 	}
 
-	ln, err := net.Listen(listenNetwork, listenAddr)
+	ln, err := net.Listen(network, address)
 	if err != nil {
 		log.Fatal("Failed to setup listener: ", err)
 	}
