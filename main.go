@@ -21,6 +21,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/syslog"
 	"net"
 	"os"
 	"os/signal"
@@ -40,6 +41,16 @@ var (
 	rejectFmt     string   = "5.7.1 rejected because of DMARC failure for %s despite p=none"
 	umask         int      = 0002
 )
+
+var l *log.Logger
+
+func init() {
+	syslog, err := syslog.New(syslog.LOG_MAIL|syslog.LOG_INFO, "dmarcator")
+	if err != nil {
+		log.Fatal(os.Stderr, "Failed not initialize syslog: ", err)
+	}
+	l = log.New(syslog, "", 0)
+}
 
 type Session struct {
 	milter.NoOpMilter
@@ -63,11 +74,12 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 	if !strings.EqualFold(name, "Authentication-Results") {
 		return milter.RespContinue, nil
 	}
+	queueID := m.Macros["i"]
 	id, results, err := authres.Parse(value)
 	if err != nil {
-		// simply log in case we can't parse, an AR header, because we cannot
+		// Simply log in case we can't parse an AR header, because we cannot
 		// handle it better than that.
-		log.Printf("failed to parse header: %v:\n%v: %v", err, name, value)
+		l.Printf("%s: failed to parse header: %v: %q", queueID, err, name+": "+value)
 		return milter.RespContinue, nil
 	}
 
@@ -79,6 +91,7 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 	for _, result := range results {
 		if r, ok := result.(*authres.DMARCResult); ok {
 			if shouldRejectDMARCRes(r) {
+				l.Printf("%s: reject dmarc=fail p=none from=%s", queueID, r.From)
 				return newRejectResponse(r.From), nil
 			}
 		}
@@ -92,13 +105,13 @@ func main() {
 		var err error
 		identity, err = os.Hostname()
 		if err != nil {
-			log.Fatal("Failed to read hostname: ", err)
+			l.Fatal("Failed to read hostname: ", err)
 		}
 	}
 
 	network, address, found := strings.Cut(listenURI, "://")
 	if !found {
-		log.Fatal("Invalid listen URI")
+		l.Fatal("Invalid listen URI")
 	}
 
 	s := milter.Server{
@@ -113,7 +126,7 @@ func main() {
 
 	ln, err := net.Listen(network, address)
 	if err != nil {
-		log.Fatal("Failed to setup listener: ", err)
+		l.Fatal("Failed to setup listener: ", err)
 	}
 
 	// Closing the listener will unlink the unix socket, if any
@@ -122,12 +135,12 @@ func main() {
 	go func() {
 		<-sigs
 		if err := s.Close(); err != nil {
-			log.Fatal("Failed to close server: ", err)
+			l.Fatal("Failed to close server: ", err)
 		}
 	}()
 
-	log.Println("Milter listening at", listenURI)
+	l.Println("Milter listening at", listenURI)
 	if err := s.Serve(ln); err != nil && err != milter.ErrServerClosed {
-		log.Fatal("Failed to serve: ", err)
+		l.Fatal("Failed to serve: ", err)
 	}
 }
