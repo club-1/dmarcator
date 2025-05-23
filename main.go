@@ -47,7 +47,7 @@ var l *log.Logger
 func init() {
 	syslog, err := syslog.New(syslog.LOG_MAIL|syslog.LOG_INFO, "dmarcator")
 	if err != nil {
-		log.Fatal(os.Stderr, "Failed not initialize syslog: ", err)
+		log.Fatal(os.Stderr, "Failed to initialize syslog: ", err)
 	}
 	l = log.New(syslog, "", 0)
 }
