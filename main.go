@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -18,6 +19,7 @@ var (
 	identity      string   = "mail.club1.fr"
 	listenURI     string   = "unix:///var/spool/postfix/dmarc-reject/dmarc-reject.sock"
 	rejectDomains []string = []string{"gmail.com"}
+	rejectFmt     string   = "5.7.1 rejected because of DMARC failure for %s despite p=none"
 )
 
 type Session struct {
@@ -32,6 +34,10 @@ func shouldRejectDMARCRes(result *authres.DMARCResult) bool {
 		return false
 	}
 	return true
+}
+
+func newRejectResponse(domain string) milter.Response {
+	return milter.NewResponseStr(byte(milter.RespReject), fmt.Sprintf(rejectFmt, domain))
 }
 
 func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.Response, error) {
@@ -54,7 +60,7 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 	for _, result := range results {
 		if r, ok := result.(*authres.DMARCResult); ok {
 			if shouldRejectDMARCRes(r) {
-				return milter.RespReject, nil
+				return newRejectResponse(r.From), nil
 			}
 		}
 	}
