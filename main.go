@@ -38,6 +38,7 @@ var (
 	listenURI     string   = "unix:///var/spool/postfix/dmarc-reject/dmarc-reject.sock"
 	rejectDomains []string = []string{"gmail.com"}
 	rejectFmt     string   = "5.7.1 rejected because of DMARC failure for %s despite p=none"
+	umask         int      = 0002
 )
 
 type Session struct {
@@ -106,6 +107,9 @@ func main() {
 		},
 		Protocol: milter.OptNoConnect | milter.OptNoHelo | milter.OptNoMailFrom | milter.OptNoRcptTo | milter.OptNoEOH | milter.OptNoBody,
 	}
+
+	// Allows to set the permissions of the created unix socket
+	syscall.Umask(umask)
 
 	ln, err := net.Listen(network, address)
 	if err != nil {
