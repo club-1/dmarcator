@@ -1,0 +1,4 @@
+- Make it configurable
+- Make it log to the syslog
+- Add a systemd unit
+- Make a Debian package
