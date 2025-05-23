@@ -37,7 +37,7 @@ func shouldRejectDMARCRes(result *authres.DMARCResult) bool {
 }
 
 func newRejectResponse(domain string) milter.Response {
-	return milter.NewResponseStr(byte(milter.RespReject), fmt.Sprintf(rejectFmt, domain))
+	return milter.NewResponseStr(byte(milter.ActReplyCode), "550 "+fmt.Sprintf(rejectFmt, domain))
 }
 
 func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.Response, error) {
