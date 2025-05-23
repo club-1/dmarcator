@@ -48,7 +48,7 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 	if err != nil {
 		// simply log in case we can't parse, an AR header, because we cannot
 		// handle it better than that.
-		log.Printf("failed to parse header %q: %v", name+": ", value, err)
+		log.Printf("failed to parse header: %v:\n%v: %v", err, name, value)
 		return milter.RespContinue, nil
 	}
 
