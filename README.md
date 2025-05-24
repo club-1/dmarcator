@@ -16,7 +16,7 @@ policy.
 TODO
 ----
 
-- [ ] Make it configurable
+- [x] Make it configurable
 - [x] Make it log to the syslog
-- [ ] Add a systemd unit
+- [x] Add a systemd unit
 - [ ] Make a Debian package
