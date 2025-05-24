@@ -88,6 +88,9 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 			if shouldRejectDMARCRes(r) {
 				l.Printf("%s: reject dmarc=%v from=%s", queueID, r.Value, r.From)
 				return newRejectResponse(r.From), nil
+			} else {
+				l.Printf("%s: accept dmarc=%v from=%s", queueID, r.Value, r.From)
+				return milter.RespAccept, nil
 			}
 		}
 	}
