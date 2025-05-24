@@ -1,0 +1,12 @@
+[Unit]
+Description=Milter to reject mails based on DMARC headers
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/dmarcator
+Restart=on-failure
+User=dmarcator
+RuntimeDirectory=dmarcator
+
+[Install]
+WantedBy=multi-user.target
