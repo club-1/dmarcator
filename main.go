@@ -26,7 +26,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"slices"
 	"strings"
 	"syscall"
 
@@ -50,6 +49,8 @@ var conf = Conf{
 	UMask:     0o002,
 }
 
+var rejectDomains = make(map[string]bool)
+
 var l *log.Logger
 
 func init() {
@@ -67,13 +68,8 @@ type Session struct {
 }
 
 func shouldRejectDMARCRes(result *authres.DMARCResult) bool {
-	if result.Value == authres.ResultPass {
-		return false
-	}
-	if !slices.Contains(conf.RejectDomains, result.From) {
-		return false
-	}
-	return true
+	return result.Value != authres.ResultPass &&
+		rejectDomains[strings.ToLower(result.From)]
 }
 
 func newRejectResponse(domain string) milter.Response {
@@ -134,6 +130,10 @@ func main() {
 	network, address, found := strings.Cut(conf.ListenURI, "://")
 	if !found {
 		l.Fatal("Invalid listen URI")
+	}
+
+	for _, domain := range conf.RejectDomains {
+		rejectDomains[strings.ToLower(domain)] = true
 	}
 
 	s := milter.Server{

@@ -1,6 +1,6 @@
 module github.com/club-1/dmarcator
 
-go 1.22.0
+go 1.18
 
 require (
 	github.com/BurntSushi/toml v1.5.0
