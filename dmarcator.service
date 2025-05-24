@@ -8,5 +8,9 @@ Restart=on-failure
 User=dmarcator
 RuntimeDirectory=dmarcator
 
+# Make sure to forward logs to syslog with the correct facility
+StandardError=journal
+SyslogFacility=mail
+
 [Install]
 WantedBy=multi-user.target

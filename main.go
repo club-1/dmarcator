@@ -22,7 +22,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"log/syslog"
 	"net"
 	"os"
 	"os/signal"
@@ -51,17 +50,7 @@ var conf = Conf{
 
 var rejectDomains = make(map[string]bool)
 
-var l *log.Logger
-
-func init() {
-	syslog, err := syslog.New(syslog.LOG_MAIL|syslog.LOG_INFO, "dmarcator")
-	if err != nil {
-		log.Print("Failed to initialize syslog, logging to stderr: ", err)
-		l = log.Default()
-	} else {
-		l = log.New(syslog, "", 0)
-	}
-}
+var l *log.Logger = log.New(os.Stderr, "", 0)
 
 type Session struct {
 	milter.NoOpMilter
