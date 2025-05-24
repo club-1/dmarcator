@@ -47,9 +47,11 @@ var l *log.Logger
 func init() {
 	syslog, err := syslog.New(syslog.LOG_MAIL|syslog.LOG_INFO, "dmarcator")
 	if err != nil {
-		log.Fatal(os.Stderr, "Failed to initialize syslog: ", err)
+		log.Print("Failed to initialize syslog, logging to stderr: ", err)
+		l = log.Default()
+	} else {
+		l = log.New(syslog, "", 0)
 	}
-	l = log.New(syslog, "", 0)
 }
 
 type Session struct {
