@@ -19,6 +19,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"log/syslog"
@@ -29,18 +30,25 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/BurntSushi/toml"
 	"github.com/emersion/go-milter"
 	"github.com/emersion/go-msgauth/authres"
 )
 
-var (
-	// TODO: make these variables configurable, maybe based on a TOML config file?
-	identity      string   = "mail.club1.fr"
-	listenURI     string   = "unix:///var/spool/postfix/dmarcator/dmarcator.sock"
-	rejectDomains []string = []string{"gmail.com"}
-	rejectFmt     string   = "5.7.1 rejected because of DMARC failure for %s despite p=none"
-	umask         int      = 0002
-)
+type Conf struct {
+	AuthservID    string
+	ListenURI     string
+	RejectDomains []string
+	RejectFmt     string
+	UMask         int
+}
+
+// Default values
+var conf = Conf{
+	ListenURI: "unix:///run/dmarcator/dmarcator.sock",
+	RejectFmt: "5.7.1 rejected because of DMARC failure for %s despite p=none",
+	UMask:     0o002,
+}
 
 var l *log.Logger
 
@@ -62,14 +70,14 @@ func shouldRejectDMARCRes(result *authres.DMARCResult) bool {
 	if result.Value == authres.ResultPass {
 		return false
 	}
-	if !slices.Contains(rejectDomains, result.From) {
+	if !slices.Contains(conf.RejectDomains, result.From) {
 		return false
 	}
 	return true
 }
 
 func newRejectResponse(domain string) milter.Response {
-	return milter.NewResponseStr(byte(milter.ActReplyCode), "550 "+fmt.Sprintf(rejectFmt, domain))
+	return milter.NewResponseStr(byte(milter.ActReplyCode), "550 "+fmt.Sprintf(conf.RejectFmt, domain))
 }
 
 func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.Response, error) {
@@ -85,7 +93,7 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 		return milter.RespContinue, nil
 	}
 
-	if !strings.EqualFold(id, identity) {
+	if !strings.EqualFold(id, conf.AuthservID) {
 		// Not our Authentication-Results, ignore the field
 		return milter.RespContinue, nil
 	}
@@ -103,15 +111,27 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 }
 
 func main() {
-	if identity == "" {
+	flagConf := flag.String("c", "/etc/dmarcator.conf", "The configuration file to use.")
+	flag.Parse()
+
+	conffile, err := os.Open(*flagConf)
+	if err != nil {
+		l.Fatal("Failed to open conf file: ", err)
+	}
+	decoder := toml.NewDecoder(conffile)
+	if _, err := decoder.Decode(&conf); err != nil {
+		l.Fatalf("Failed to parse conf file %s: %v", *flagConf, err)
+	}
+
+	if conf.AuthservID == "" {
 		var err error
-		identity, err = os.Hostname()
+		conf.AuthservID, err = os.Hostname()
 		if err != nil {
 			l.Fatal("Failed to read hostname: ", err)
 		}
 	}
 
-	network, address, found := strings.Cut(listenURI, "://")
+	network, address, found := strings.Cut(conf.ListenURI, "://")
 	if !found {
 		l.Fatal("Invalid listen URI")
 	}
@@ -124,7 +144,7 @@ func main() {
 	}
 
 	// Allows to set the permissions of the created unix socket
-	syscall.Umask(umask)
+	syscall.Umask(conf.UMask)
 
 	ln, err := net.Listen(network, address)
 	if err != nil {
@@ -141,7 +161,7 @@ func main() {
 		}
 	}()
 
-	l.Println("Milter listening at", listenURI)
+	l.Println("Milter listening at", conf.ListenURI)
 	if err := s.Serve(ln); err != nil && err != milter.ErrServerClosed {
 		l.Fatal("Failed to serve: ", err)
 	}
