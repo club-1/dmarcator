@@ -45,7 +45,7 @@ type Conf struct {
 // Default values
 var conf = Conf{
 	ListenURI: "unix:///run/dmarcator/dmarcator.sock",
-	RejectFmt: "5.7.1 rejected because of DMARC failure for %s despite p=none",
+	RejectFmt: "5.7.1 rejected because of DMARC failure for %s overriding policy",
 	UMask:     0o002,
 }
 
@@ -97,7 +97,7 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 	for _, result := range results {
 		if r, ok := result.(*authres.DMARCResult); ok {
 			if shouldRejectDMARCRes(r) {
-				l.Printf("%s: reject dmarc=fail p=none from=%s", queueID, r.From)
+				l.Printf("%s: reject dmarc=%v from=%s", queueID, r.Value, r.From)
 				return newRejectResponse(r.From), nil
 			}
 		}
