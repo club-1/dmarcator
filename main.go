@@ -48,6 +48,9 @@ var conf = Conf{
 	UMask:     0o002,
 }
 
+// Set by the compiler
+var version = "unknown"
+
 var rejectDomains = make(map[string]bool)
 
 var l *log.Logger = log.New(os.Stderr, "", 0)
@@ -98,17 +101,53 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 	return milter.RespContinue, nil
 }
 
+const (
+	usageFmt = `Usage: dmarcator [OPTION]...
+
+Milter server that rejects mails based on the DMARC Authentication-Results
+header added by a previous milter (e.g. OpenDMARC).
+
+Options:
+  -c FILE       Read config from FILE. (default %q)
+  -h, --help    Show this help and exit.
+  --version     Show version and exit.
+`
+	flagConfDef = "/etc/dmarcator.conf"
+)
+
 func main() {
-	flagConf := flag.String("c", "/etc/dmarcator.conf", "The configuration file to use.")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), usageFmt, flagConfDef)
+	}
+	var (
+		flagConf    string
+		flagHelp    bool
+		flagVersion bool
+	)
+	flag.StringVar(&flagConf, "c", flagConfDef, "")
+	flag.BoolVar(&flagHelp, "h", false, "")
+	flag.BoolVar(&flagHelp, "help", false, "")
+	flag.BoolVar(&flagVersion, "version", false, "")
 	flag.Parse()
 
-	conffile, err := os.Open(*flagConf)
+	if flagHelp {
+		flag.CommandLine.SetOutput(os.Stdout)
+		flag.Usage()
+		os.Exit(0)
+	}
+
+	if flagVersion {
+		fmt.Println("dmarcator", version)
+		os.Exit(0)
+	}
+
+	conffile, err := os.Open(flagConf)
 	if err != nil {
 		l.Fatal("Failed to open conf file: ", err)
 	}
 	decoder := toml.NewDecoder(conffile)
 	if _, err := decoder.Decode(&conf); err != nil {
-		l.Fatalf("Failed to parse conf file %s: %v", *flagConf, err)
+		l.Fatalf("Failed to parse conf file %s: %v", flagConf, err)
 	}
 
 	if conf.AuthservID == "" {
