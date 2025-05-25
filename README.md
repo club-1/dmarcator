@@ -13,10 +13,30 @@ an Authentication-Results header with the result `dmarc=fail`. So dmarcator
 simply reads this header and chooses to reject the mail despite the `p=none`
 policy.
 
-TODO
-----
+Configuration with Postfix on Debian
+------------------------------------
 
-- [x] Make it configurable
-- [x] Make it log to the syslog
-- [x] Add a systemd unit
-- [ ] Make a Debian package
+A Debian package can be built from source based the [Debian packaging repo].
+
+Postfix is run in a chroot in Debian, so it is needed to adapt the default
+configuration. Create a new directory for the UNIX socket in Postfix's chroot
+with the correct permissions, for example with systemd-tmpfiles:
+
+```conf
+#/etc/tmpfiles.d/dmarcator.conf
+#Type Path                                    Mode User      Group   Age Argument
+d     /var/spool/postfix/dmarcator            0750 dmarcator postfix -   -
+```
+
+Then:
+
+    sudo systemd-tmpfiles --create
+
+Finally, set the ListenURI in dmarcator's config file:
+
+```toml
+# /etc/dmarcator.conf
+ListenURI = "unix:///var/spool/postfix/dmarcator/dmarcator.sock"
+```
+
+[Debian packaging repo]: https://salsa.debian.org/go-team/packages/dmarcator
