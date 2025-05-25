@@ -22,7 +22,7 @@ Postfix is run in a chroot in Debian, so it is needed to adapt the default
 configuration. Create a new directory for the UNIX socket in Postfix's chroot
 with the correct permissions, for example with systemd-tmpfiles:
 
-```conf
+```ini
 #/etc/tmpfiles.d/dmarcator.conf
 #Type Path                                    Mode User      Group   Age Argument
 d     /var/spool/postfix/dmarcator            0750 dmarcator postfix -   -
@@ -32,11 +32,28 @@ Then:
 
     sudo systemd-tmpfiles --create
 
-Finally, set the ListenURI in dmarcator's config file:
+Set the ListenURI in dmarcator's config file:
 
 ```toml
 # /etc/dmarcator.conf
 ListenURI = "unix:///var/spool/postfix/dmarcator/dmarcator.sock"
 ```
+
+Add dmarcator to postfix's milters in `/etc/postfix/main.cf`:
+
+```diff
+ smtpd_milters =
+   local:opendkim/opendkim.sock
+   local:opendmarc/opendmarc.sock
++  local:dmarcator/dmarcator.sock
+```
+
+Add postfix to the dmarcator group:
+
+    sudo adduser postfix dmarcator
+
+And finally restart both services:
+
+    sudo systemctl restart postfix dmarcator
 
 [Debian packaging repo]: https://salsa.debian.org/go-team/packages/dmarcator
