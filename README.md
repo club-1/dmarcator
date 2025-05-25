@@ -24,8 +24,8 @@ with the correct permissions, for example with systemd-tmpfiles:
 
 ```ini
 #/etc/tmpfiles.d/dmarcator.conf
-#Type Path                                    Mode User      Group   Age Argument
-d     /var/spool/postfix/dmarcator            0750 dmarcator postfix -   -
+#Type  Path                          Mode  User       Group    Age  Argument
+d      /var/spool/postfix/dmarcator  0750  dmarcator  postfix  -    -
 ```
 
 Then:
