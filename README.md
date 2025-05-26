@@ -13,6 +13,9 @@ an Authentication-Results header with the result `dmarc=fail`. So dmarcator
 simply reads this header and chooses to reject the mail despite the `p=none`
 policy.
 
+See also [this forum thread (in French)](https://forum.club1.fr/d/245) for
+more information about why this was created.
+
 Configuration with Postfix on Debian
 ------------------------------------
 
@@ -57,3 +60,23 @@ And finally restart both services:
     sudo systemctl restart postfix dmarcator
 
 [Debian packaging repo]: https://salsa.debian.org/go-team/packages/dmarcator
+
+Checking the configuration
+--------------------------
+
+An easy way to check that the configuration is correct is by using
+<https://dmarc-tester.com/>. Here is an excerpt of the syslog's mail facility
+logs:
+
+```
+policyd-spf[1870138]: : prepend Authentication-Results: mail.club1.fr; spf=pass (sender SPF authorized) smtp.mailfrom=mg.spoofing.science (client-ip=69.72.42.6; helo=m42-6.mailgun.net; envelope-from=bounce+5cff61.3a5c1a-***=club1.fr@mg.spoofing.science; receiver=club1.fr)
+postfix/smtpd[1869643]: 67A7541757: client=m42-6.mailgun.net[69.72.42.6]
+postsrsd[1870162]: srs_forward: <bounce+5cff61.3a5c1a-***=club1.fr@mg.spoofing.science> rewritten as <SRS0=tNxH=YJ=mg.spoofing.science=bounce+5cff61.3a5c1a-***=club1.fr@club1.fr>
+postsrsd[1870162]: srs_forward: <SRS0=tNxH=YJ=mg.spoofing.science=bounce+5cff61.3a5c1a-***=club1.fr@club1.fr> not rewritten: Valid SRS address for <bounce+5cff61.3a5c1a-***=club1.fr@mg.spoofing.science>
+postfix/cleanup[1870161]: 67A7541757: message-id=<20250525152800.f2853f3b745eb0af@mg.spoofing.science>
+opendkim[1175]: 67A7541757: DKIM verification successful
+opendkim[1175]: 67A7541757: s=mx d=mg.spoofing.science a=rsa-sha256 SSL-
+opendmarc[1151]: 67A7541757: gmail.com fail
+dmarcator[1852753]: 67A7541757: reject dmarc=fail from=gmail.com
+postfix/cleanup[1870161]: 67A7541757: milter-reject: END-OF-MESSAGE from m42-6.mailgun.net[69.72.42.6]: 5.7.1 rejected because of DMARC failure for gmail.com overriding policy; from=<SRS0=tNxH=YJ=mg.spoofing.science=bounce+5cff61.3a5c1a-***=club1.fr@club1.fr> to=<***@club1.fr> proto=ESMTP helo=<m42-6.mailgun.net>
+```
