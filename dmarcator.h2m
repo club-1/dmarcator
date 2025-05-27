@@ -1,0 +1,11 @@
+[NAME]
+dmarcator - Milter that rejects mails based on the DMARC Authentication-Results header
+
+[AUTHOR]
+Nicolas Peugnet <nicolas@club1.fr>
+
+[REPORTING BUGS]
+Use the issue tracker at <https://github.com/club-1/dmarcator>.
+
+[SEE ALSO]
+sendmail(8), opendmarc(8)
