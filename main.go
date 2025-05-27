@@ -193,7 +193,7 @@ func main() {
 		}
 	}()
 
-	l.Println("Milter listening at", conf.ListenURI)
+	l.Printf("Milter listening at %s://%v", ln.Addr().Network(), ln.Addr())
 	if err := s.Serve(ln); err != nil && err != milter.ErrServerClosed {
 		l.Fatal("Failed to serve: ", err)
 	}
