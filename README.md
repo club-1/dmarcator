@@ -1,6 +1,8 @@
 dmarcator
 ==========
 
+[![build][build-svg]][build-url]
+
 Milter server that rejects mails based on the DMARC Authentication-Results
 header added by a previous milter (e.g. OpenDMARC).
 
@@ -80,3 +82,6 @@ opendmarc[1151]: 67A7541757: gmail.com fail
 dmarcator[1852753]: 67A7541757: reject dmarc=fail from=gmail.com
 postfix/cleanup[1870161]: 67A7541757: milter-reject: END-OF-MESSAGE from m42-6.mailgun.net[69.72.42.6]: 5.7.1 rejected because of DMARC failure for gmail.com overriding policy; from=<SRS0=tNxH=YJ=mg.spoofing.science=bounce+5cff61.3a5c1a-***=club1.fr@club1.fr> to=<***@club1.fr> proto=ESMTP helo=<m42-6.mailgun.net>
 ```
+
+[build-svg]: https://github.com/club-1/dmarcator/actions/workflows/build.yml/badge.svg
+[build-url]: https://github.com/club-1/dmarcator/actions/workflows/build.yml
