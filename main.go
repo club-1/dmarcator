@@ -116,23 +116,24 @@ Options:
 )
 
 func main() {
-	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), usageFmt, flagConfDef)
+	cli := flag.NewFlagSet("dmarcator", flag.ExitOnError)
+	cli.Usage = func() {
+		fmt.Fprintf(cli.Output(), usageFmt, flagConfDef)
 	}
 	var (
 		flagConf    string
 		flagHelp    bool
 		flagVersion bool
 	)
-	flag.StringVar(&flagConf, "c", flagConfDef, "")
-	flag.BoolVar(&flagHelp, "h", false, "")
-	flag.BoolVar(&flagHelp, "help", false, "")
-	flag.BoolVar(&flagVersion, "version", false, "")
-	flag.Parse()
+	cli.StringVar(&flagConf, "c", flagConfDef, "")
+	cli.BoolVar(&flagHelp, "h", false, "")
+	cli.BoolVar(&flagHelp, "help", false, "")
+	cli.BoolVar(&flagVersion, "version", false, "")
+	cli.Parse(os.Args[1:])
 
 	if flagHelp {
-		flag.CommandLine.SetOutput(os.Stdout)
-		flag.Usage()
+		cli.SetOutput(os.Stdout)
+		cli.Usage()
 		os.Exit(0)
 	}
 
