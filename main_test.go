@@ -147,6 +147,15 @@ RejectDomains = ["gmail.com"]
 	testHeader(t, config, "Authentication-Results", header, expected)
 }
 
+func TestOtherHeader(t *testing.T) {
+	config := `
+ListenURI = "tcp://127.0.0.1:"
+AuthservID = "mail.club1.fr"
+`
+	expected := &milter.Action{Code: milter.ActContinue}
+	testHeader(t, config, "Hello", "World!", expected)
+}
+
 func testHeader(t *testing.T, config, key, value string, expected *milter.Action) {
 	out := setup(t, config)
 	go main()
