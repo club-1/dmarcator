@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/emersion/go-milter"
@@ -48,6 +49,10 @@ func setup(t *testing.T, config string) *io.PipeReader {
 		t.Fatal(err)
 	}
 	os.Args = []string{"dmarcator", "-c", configPath}
+
+	// save default conf
+	prevConf := conf
+	t.Cleanup(func() { conf = prevConf })
 
 	return r
 }
@@ -112,22 +117,40 @@ func TestHauthRes(t *testing.T) {
 			action: &milter.Action{Code: milter.ActContinue},
 		},
 	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			subTestHauthRes(t, c.header, c.action)
-		})
-	}
-}
-
-func subTestHauthRes(t *testing.T, header string, expected *milter.Action) {
 	config := `
 ListenURI = "tcp://127.0.0.1:"
 AuthservID = "mail.club1.fr"
 RejectDomains = ["gmail.com"]
 `
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			testHeader(t, config, "Authentication-Results", c.header, c.action)
+		})
+	}
+}
 
+func TestConfigNoAuthservID(t *testing.T) {
+	config := `
+ListenURI = "tcp://127.0.0.1:"
+RejectDomains = ["gmail.com"]
+`
+	hostname, err := os.Hostname()
+	if err != nil {
+		t.Fatal("unexpected error: ", err)
+	}
+	header := hostname + "; dmarc=fail header.from=gmail.com"
+	expected := &milter.Action{
+		Code:     milter.ActReplyCode,
+		SMTPCode: 550,
+		SMTPText: "5.7.1 rejected because of DMARC failure for gmail.com overriding policy",
+	}
+	testHeader(t, config, "Authentication-Results", header, expected)
+}
+
+func testHeader(t *testing.T, config, key, value string, expected *milter.Action) {
 	out := setup(t, config)
 	go main()
+	defer syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 	l := readListener(t, out)
 	network, address, _ := strings.Cut(l, "://")
 
@@ -142,7 +165,7 @@ RejectDomains = ["gmail.com"]
 	defer session.Close()
 
 	go io.Copy(io.Discard, out)
-	res, err := session.HeaderField("Authentication-Results", header)
+	res, err := session.HeaderField(key, value)
 	if err != nil {
 		t.Error("unexpected err: ", err)
 	}
