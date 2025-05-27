@@ -147,6 +147,21 @@ RejectDomains = ["gmail.com"]
 	testHeader(t, config, "Authentication-Results", header, expected)
 }
 
+func TestUNIXSocket(t *testing.T) {
+	config := `
+ListenURI = "unix:///tmp/dmarcator.sock"
+AuthservID = "mail.club1.fr"
+RejectDomains = ["gmail.com"]
+`
+	header := "mail.club1.fr; dmarc=fail header.from=gmail.com"
+	expected := &milter.Action{
+		Code:     milter.ActReplyCode,
+		SMTPCode: 550,
+		SMTPText: "5.7.1 rejected because of DMARC failure for gmail.com overriding policy",
+	}
+	testHeader(t, config, "Authentication-Results", header, expected)
+}
+
 func TestOtherHeader(t *testing.T) {
 	config := `
 ListenURI = "tcp://127.0.0.1:"
