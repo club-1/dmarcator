@@ -1,9 +1,10 @@
 [Unit]
 Description=Milter to reject mails based on DMARC headers
+Documentation=man:dmarcator(8)
 
 [Service]
 Type=exec
-ExecStart=/usr/local/bin/dmarcator
+ExecStart=/usr/sbin/dmarcator
 Restart=on-failure
 User=dmarcator
 RuntimeDirectory=dmarcator
@@ -11,6 +12,11 @@ RuntimeDirectory=dmarcator
 # Make sure to forward logs to syslog with the correct facility
 StandardError=journal
 SyslogFacility=mail
+
+# Sandboxing an security options
+NoNewPrivileges=yes
+ProtectSystem=yes
+ProtectHome=yes
 
 [Install]
 WantedBy=multi-user.target
