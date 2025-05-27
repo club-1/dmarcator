@@ -1,7 +1,7 @@
 dmarcator
 ==========
 
-[![build][build-svg]][build-url]
+[![build][build-svg]][build-url] [![coverage][cover-svg]][cover-url]
 
 Milter server that rejects mails based on the DMARC Authentication-Results
 header added by a previous milter (e.g. OpenDMARC).
@@ -85,3 +85,5 @@ postfix/cleanup[1870161]: 67A7541757: milter-reject: END-OF-MESSAGE from m42-6.m
 
 [build-svg]: https://github.com/club-1/dmarcator/actions/workflows/build.yml/badge.svg
 [build-url]: https://github.com/club-1/dmarcator/actions/workflows/build.yml
+[cover-svg]: https://github.com/club-1/dmarcator/wiki/coverage.svg
+[cover-url]: https://raw.githack.com/wiki/club-1/dmarcator/coverage.html
