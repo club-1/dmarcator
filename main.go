@@ -43,7 +43,7 @@ type Conf struct {
 // Default values
 var conf = Conf{
 	ListenURI: "unix:///run/dmarcator/dmarcator.sock",
-	RejectFmt: "5.7.1 rejected because of DMARC failure for %s overriding policy",
+	RejectFmt: "rejected because of DMARC failure for %s overriding policy",
 	UMask:     0o002,
 }
 
@@ -64,7 +64,7 @@ func shouldRejectDMARCRes(result *authres.DMARCResult) bool {
 }
 
 func newRejectResponse(domain string) milter.Response {
-	return milter.NewResponseStr(byte(milter.ActReplyCode), "550 "+fmt.Sprintf(conf.RejectFmt, domain))
+	return milter.NewResponseStr(byte(milter.ActReplyCode), "550 5.7.1 "+fmt.Sprintf(conf.RejectFmt, domain))
 }
 
 func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.Response, error) {
