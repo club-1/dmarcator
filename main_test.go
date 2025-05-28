@@ -83,12 +83,30 @@ func TestHauthRes(t *testing.T) {
 			action: &milter.Action{Code: milter.ActAccept},
 		},
 		{
+			name:   "none for rejected domain",
+			header: "mail.club1.fr; dmarc=none header.from=gmail.com",
+			action: &milter.Action{
+				Code:     milter.ActReplyCode,
+				SMTPCode: 550,
+				SMTPText: "5.7.1 rejected because of DMARC failure for gmail.com overriding policy",
+			},
+		},
+		{
 			name:   "fail for rejected domain",
 			header: "mail.club1.fr; dmarc=fail header.from=gmail.com",
 			action: &milter.Action{
 				Code:     milter.ActReplyCode,
 				SMTPCode: 550,
 				SMTPText: "5.7.1 rejected because of DMARC failure for gmail.com overriding policy",
+			},
+		},
+		{
+			name:   "fail for rejected domain uppercase",
+			header: "mail.club1.fr; dmarc=fail header.from=GMAIL.com",
+			action: &milter.Action{
+				Code:     milter.ActReplyCode,
+				SMTPCode: 550,
+				SMTPText: "5.7.1 rejected because of DMARC failure for GMAIL.com overriding policy",
 			},
 		},
 		{
