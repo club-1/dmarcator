@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/textproto"
 	"os"
 	"os/signal"
 	"strings"
@@ -56,6 +57,9 @@ var l *log.Logger = log.New(os.Stderr, "", 0)
 
 type Session struct {
 	milter.NoOpMilter
+	dmarcResult  *authres.DMARCResult
+	shouldReject bool
+	headerFrom   string
 }
 
 func shouldRejectDMARCRes(result *authres.DMARCResult) bool {
@@ -68,7 +72,14 @@ func newRejectResponse(domain string) milter.Response {
 }
 
 func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.Response, error) {
+	if strings.EqualFold(name, "From") {
+		s.headerFrom = value
+		return milter.RespContinue, nil
+	}
 	if !strings.EqualFold(name, "Authentication-Results") {
+		return milter.RespContinue, nil
+	}
+	if s.dmarcResult != nil {
 		return milter.RespContinue, nil
 	}
 	queueID := m.Macros["i"]
@@ -87,17 +98,28 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 
 	for _, result := range results {
 		if r, ok := result.(*authres.DMARCResult); ok {
-			if shouldRejectDMARCRes(r) {
-				l.Printf("%s: reject dmarc=%v from=%s", queueID, r.Value, r.From)
-				return newRejectResponse(r.From), nil
-			} else {
-				l.Printf("%s: accept dmarc=%v from=%s", queueID, r.Value, r.From)
-				return milter.RespAccept, nil
-			}
+			s.dmarcResult = r
+			s.shouldReject = shouldRejectDMARCRes(r)
 		}
 	}
 
 	return milter.RespContinue, nil
+}
+
+func (s *Session) Headers(h textproto.MIMEHeader, m *milter.Modifier) (milter.Response, error) {
+	queueID := m.Macros["i"]
+	if s.dmarcResult == nil {
+		l.Printf("%s: accept dmarc=unknown from=unknown addr=%q", queueID, s.headerFrom)
+		return milter.RespAccept, nil
+	}
+	r := s.dmarcResult
+	if s.shouldReject {
+		l.Printf("%s: reject dmarc=%v from=%s addr=%q", queueID, r.Value, r.From, s.headerFrom)
+		return newRejectResponse(r.From), nil
+	} else {
+		l.Printf("%s: accept dmarc=%v from=%s addr=%q", queueID, r.Value, r.From, s.headerFrom)
+		return milter.RespAccept, nil
+	}
 }
 
 const (
@@ -171,7 +193,7 @@ func main() {
 		NewMilter: func() milter.Milter {
 			return &Session{}
 		},
-		Protocol: milter.OptNoConnect | milter.OptNoHelo | milter.OptNoMailFrom | milter.OptNoRcptTo | milter.OptNoEOH | milter.OptNoBody,
+		Protocol: milter.OptNoConnect | milter.OptNoHelo | milter.OptNoMailFrom | milter.OptNoRcptTo | milter.OptNoBody,
 	}
 
 	// Allows to set the permissions of the created unix socket

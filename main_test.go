@@ -122,17 +122,17 @@ func TestHauthRes(t *testing.T) {
 		{
 			name:   "non dmarc header",
 			header: "mail.club1.fr; auth=none header.from=example.com",
-			action: &milter.Action{Code: milter.ActContinue},
+			action: &milter.Action{Code: milter.ActAccept},
 		},
 		{
 			name:   "results from other authserv-id",
 			header: "example.com; dmarc=fail header.from=gmail.com",
-			action: &milter.Action{Code: milter.ActContinue},
+			action: &milter.Action{Code: milter.ActAccept},
 		},
 		{
 			name:   "invalid authentication-results header",
 			header: "mail.club1.fr; dmarc header.from=gmail.com",
-			action: &milter.Action{Code: milter.ActContinue},
+			action: &milter.Action{Code: milter.ActAccept},
 		},
 	}
 	config := `
@@ -185,7 +185,7 @@ func TestOtherHeader(t *testing.T) {
 ListenURI = "tcp://127.0.0.1:"
 AuthservID = "mail.club1.fr"
 `
-	expected := &milter.Action{Code: milter.ActContinue}
+	expected := &milter.Action{Code: milter.ActAccept}
 	testHeader(t, config, "Hello", "World!", expected)
 }
 
@@ -209,7 +209,14 @@ func testHeader(t *testing.T, config, key, value string, expected *milter.Action
 	go io.Copy(io.Discard, out)
 	res, err := session.HeaderField(key, value)
 	if err != nil {
-		t.Error("unexpected err: ", err)
+		t.Error("unexpected err sending header: ", err)
+	}
+	if res.Code != milter.ActContinue {
+		t.Error("expected continue, got: ", res)
+	}
+	res, err = session.HeaderEnd()
+	if err != nil {
+		t.Error("unexpected err sending EOH: ", err)
 	}
 	if !reflect.DeepEqual(res, expected) {
 		t.Errorf("expected %#v, got %#v", expected, res)
