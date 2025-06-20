@@ -21,7 +21,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -33,14 +32,14 @@ import (
 	"github.com/emersion/go-milter"
 )
 
-func setup(t *testing.T, config string) *io.PipeReader {
+func setup(t *testing.T, config string) (string, string, *bytes.Buffer) {
 	tmp := t.TempDir()
 
 	// setup logger
-	prevLogger := l
-	t.Cleanup(func() { l = prevLogger })
+	prevLogOut := l.Writer()
+	t.Cleanup(func() { l.SetOutput(prevLogOut) })
 	r, w := io.Pipe()
-	l = log.New(w, "", 0)
+	l.SetOutput(w)
 
 	// setup config file
 	configPath := filepath.Join(tmp, "dmarcator.conf")
@@ -54,7 +53,14 @@ func setup(t *testing.T, config string) *io.PipeReader {
 	prevConf := conf
 	t.Cleanup(func() { conf = prevConf })
 
-	return r
+	go main()
+	t.Cleanup(func() { syscall.Kill(syscall.Getpid(), syscall.SIGINT) })
+	listener := readListener(t, r)
+	buf := &bytes.Buffer{}
+	l.SetOutput(buf)
+	network, address, _ := strings.Cut(listener, "://")
+
+	return network, address, buf
 }
 
 func readListener(t *testing.T, r io.Reader) string {
@@ -142,7 +148,7 @@ RejectDomains = ["gmail.com"]
 `
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			testHeaders(t, c.action, config, "Authentication-Results", c.header)
+			testHeaders(t, config, []string{"Authentication-Results", c.header}, c.action)
 		})
 	}
 }
@@ -162,7 +168,7 @@ RejectDomains = ["gmail.com"]
 		SMTPCode: 550,
 		SMTPText: "5.7.1 rejected because of DMARC failure for gmail.com overriding policy",
 	}
-	testHeaders(t, expected, config, "Authentication-Results", header)
+	testHeaders(t, config, []string{"Authentication-Results", header}, expected)
 }
 
 func TestUNIXSocket(t *testing.T) {
@@ -177,7 +183,7 @@ RejectDomains = ["gmail.com"]
 		SMTPCode: 550,
 		SMTPText: "5.7.1 rejected because of DMARC failure for gmail.com overriding policy",
 	}
-	testHeaders(t, expected, config, "Authentication-Results", header)
+	testHeaders(t, config, []string{"Authentication-Results", header}, expected)
 }
 
 func TestMultipleFields(t *testing.T) {
@@ -185,6 +191,7 @@ func TestMultipleFields(t *testing.T) {
 		name    string
 		headers []string
 		action  *milter.Action
+		output  []string
 	}{
 		{
 			name: "non authres header fields",
@@ -193,6 +200,7 @@ func TestMultipleFields(t *testing.T) {
 				"Subject", "Hello world!",
 			},
 			action: &milter.Action{Code: milter.ActAccept},
+			output: []string{`accept dmarc=unknown from=unknown addr="hello@example.com"`},
 		},
 		{
 			name: "multiple dmarc",
@@ -205,6 +213,7 @@ func TestMultipleFields(t *testing.T) {
 				SMTPCode: 550,
 				SMTPText: "5.7.1 rejected because of DMARC failure for gmail.com overriding policy",
 			},
+			output: []string{`reject dmarc=fail from=gmail.com addr=""`},
 		},
 		{
 			name: "from bare address",
@@ -213,6 +222,7 @@ func TestMultipleFields(t *testing.T) {
 				"From", "coucou@gmail.com",
 			},
 			action: &milter.Action{Code: milter.ActAccept},
+			output: []string{`accept dmarc=pass from=gmail.com addr="coucou@gmail.com"`},
 		},
 	}
 	config := `
@@ -222,20 +232,16 @@ RejectDomains = ["gmail.com"]
 `
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			testHeaders(t, c.action, config, c.headers...)
+			testHeaders(t, config, c.headers, c.action, c.output...)
 		})
 	}
 }
 
-func testHeaders(t *testing.T, expected *milter.Action, config string, headers ...string) {
+func testHeaders(t *testing.T, config string, headers []string, expectedAct *milter.Action, expectedOut ...string) {
 	if len(headers)%2 != 0 {
 		panic("headers varargs must be pairs")
 	}
-	out := setup(t, config)
-	go main()
-	defer syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-	l := readListener(t, out)
-	network, address, _ := strings.Cut(l, "://")
+	network, address, out := setup(t, config)
 
 	client := milter.NewClientWithOptions(network, address, milter.ClientOptions{
 		Dialer: &net.Dialer{},
@@ -247,7 +253,9 @@ func testHeaders(t *testing.T, expected *milter.Action, config string, headers .
 	}
 	defer session.Close()
 
-	go io.Copy(io.Discard, out)
+	if err := session.Macros(milter.CodeHeader, "i", "QUEUEID"); err != nil {
+		t.Fatal("unexpected err setting queue id macro: ", err)
+	}
 	for i := 0; i < len(headers); i += 2 {
 		_, err := session.HeaderField(headers[i], headers[i+1])
 		if err != nil {
@@ -258,7 +266,12 @@ func testHeaders(t *testing.T, expected *milter.Action, config string, headers .
 	if err != nil {
 		t.Error("unexpected err sending EOH: ", err)
 	}
-	if !reflect.DeepEqual(res, expected) {
-		t.Errorf("expected %#v, got %#v", expected, res)
+	if !reflect.DeepEqual(res, expectedAct) {
+		t.Errorf("expected %#v, got %#v", expectedAct, res)
+	}
+	for _, expected := range expectedOut {
+		if !bytes.Contains(out.Bytes(), []byte(expected)) {
+			t.Errorf("expected contains:\n%s\nactual:\n%s", expected, out.String())
+		}
 	}
 }
