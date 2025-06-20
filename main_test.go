@@ -142,7 +142,7 @@ RejectDomains = ["gmail.com"]
 `
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			testHeader(t, config, "Authentication-Results", c.header, c.action)
+			testHeaders(t, c.action, config, "Authentication-Results", c.header)
 		})
 	}
 }
@@ -162,7 +162,7 @@ RejectDomains = ["gmail.com"]
 		SMTPCode: 550,
 		SMTPText: "5.7.1 rejected because of DMARC failure for gmail.com overriding policy",
 	}
-	testHeader(t, config, "Authentication-Results", header, expected)
+	testHeaders(t, expected, config, "Authentication-Results", header)
 }
 
 func TestUNIXSocket(t *testing.T) {
@@ -177,19 +177,60 @@ RejectDomains = ["gmail.com"]
 		SMTPCode: 550,
 		SMTPText: "5.7.1 rejected because of DMARC failure for gmail.com overriding policy",
 	}
-	testHeader(t, config, "Authentication-Results", header, expected)
+	testHeaders(t, expected, config, "Authentication-Results", header)
 }
 
-func TestOtherHeader(t *testing.T) {
+func TestMultipleFields(t *testing.T) {
+	cases := []struct {
+		name    string
+		headers []string
+		action  *milter.Action
+	}{
+		{
+			name: "non authres header fields",
+			headers: []string{
+				"From", "hello@example.com",
+				"Subject", "Hello world!",
+			},
+			action: &milter.Action{Code: milter.ActAccept},
+		},
+		{
+			name: "multiple dmarc",
+			headers: []string{
+				"Authentication-Results", "mail.club1.fr; dmarc=fail header.from=gmail.com",
+				"Authentication-Results", "mail.club1.fr; dmarc=pass header.from=gmail.com",
+			},
+			action: &milter.Action{
+				Code:     milter.ActReplyCode,
+				SMTPCode: 550,
+				SMTPText: "5.7.1 rejected because of DMARC failure for gmail.com overriding policy",
+			},
+		},
+		{
+			name: "from bare address",
+			headers: []string{
+				"Authentication-Results", "mail.club1.fr; dmarc=pass header.from=gmail.com",
+				"From", "coucou@gmail.com",
+			},
+			action: &milter.Action{Code: milter.ActAccept},
+		},
+	}
 	config := `
 ListenURI = "tcp://127.0.0.1:"
 AuthservID = "mail.club1.fr"
+RejectDomains = ["gmail.com"]
 `
-	expected := &milter.Action{Code: milter.ActAccept}
-	testHeader(t, config, "Hello", "World!", expected)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			testHeaders(t, c.action, config, c.headers...)
+		})
+	}
 }
 
-func testHeader(t *testing.T, config, key, value string, expected *milter.Action) {
+func testHeaders(t *testing.T, expected *milter.Action, config string, headers ...string) {
+	if len(headers)%2 != 0 {
+		panic("headers varargs must be pairs")
+	}
 	out := setup(t, config)
 	go main()
 	defer syscall.Kill(syscall.Getpid(), syscall.SIGINT)
@@ -207,14 +248,13 @@ func testHeader(t *testing.T, config, key, value string, expected *milter.Action
 	defer session.Close()
 
 	go io.Copy(io.Discard, out)
-	res, err := session.HeaderField(key, value)
-	if err != nil {
-		t.Error("unexpected err sending header: ", err)
+	for i := 0; i < len(headers); i += 2 {
+		_, err := session.HeaderField(headers[i], headers[i+1])
+		if err != nil {
+			t.Error("unexpected err sending header: ", err)
+		}
 	}
-	if res.Code != milter.ActContinue {
-		t.Error("expected continue, got: ", res)
-	}
-	res, err = session.HeaderEnd()
+	res, err := session.HeaderEnd()
 	if err != nil {
 		t.Error("unexpected err sending EOH: ", err)
 	}
