@@ -263,6 +263,15 @@ func testHeaders(t *testing.T, config string, headers []string, expectedAct *mil
 	}
 	defer session.Close()
 
+	// Send a dummy MAIL FROM, without authentication macro.
+	res, err := session.Mail("nicolas@example.fr", []string{})
+	if err != nil {
+		t.Fatal("unexpected err sending MAIL FROM: ", err)
+	}
+	if !reflect.DeepEqual(&milter.Action{Code: milter.ActContinue}, res) {
+		t.Fatalf("expected %#v, got %#v", expectedAct, res)
+	}
+
 	if err := session.Macros(milter.CodeHeader, "i", "QUEUEID"); err != nil {
 		t.Fatal("unexpected err setting queue id macro: ", err)
 	}
@@ -272,7 +281,7 @@ func testHeaders(t *testing.T, config string, headers []string, expectedAct *mil
 			t.Error("unexpected err sending header: ", err)
 		}
 	}
-	res, err := session.HeaderEnd()
+	res, err = session.HeaderEnd()
 	if err != nil {
 		t.Error("unexpected err sending EOH: ", err)
 	}
@@ -293,5 +302,32 @@ func testHeaders(t *testing.T, config string, headers []string, expectedAct *mil
 		if !strings.HasPrefix(line, expectedPrefix) {
 			t.Errorf("expected log lines to be prefixed with: %q\nactual:\n%s", expectedPrefix, line)
 		}
+	}
+}
+
+func TestAuthenticatedClient(t *testing.T) {
+	config := `ListenURI = "tcp://127.0.0.1:"`
+	network, address, _ := setup(t, config)
+
+	client := milter.NewClientWithOptions(network, address, milter.ClientOptions{
+		Dialer: &net.Dialer{},
+	})
+	defer client.Close()
+	session, err := client.Session()
+	if err != nil {
+		t.Fatal("unexpected error: ", err)
+	}
+	defer session.Close()
+
+	if err := session.Macros(milter.CodeMail, "{auth_authen}", "nicolas"); err != nil {
+		t.Fatal("unexpected err setting auth macro: ", err)
+	}
+	res, err := session.Mail("nicolas@example.fr", []string{})
+	if err != nil {
+		t.Error("unexpected err sending MAIL FROM: ", err)
+	}
+	expectedAct := &milter.Action{Code: milter.ActAccept}
+	if !reflect.DeepEqual(expectedAct, res) {
+		t.Errorf("expected %#v, got %#v", expectedAct, res)
 	}
 }

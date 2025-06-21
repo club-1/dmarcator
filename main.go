@@ -71,6 +71,14 @@ func newRejectResponse(domain string) milter.Response {
 	return milter.NewResponseStr(byte(milter.ActReplyCode), "550 5.7.1 "+fmt.Sprintf(conf.RejectFmt, domain))
 }
 
+func (s *Session) MailFrom(from string, m *milter.Modifier) (milter.Response, error) {
+	// Skip emails from authenticated clients, e.g. SASL authenticated in Postfix.
+	if m.Macros["{auth_authen}"] != "" {
+		return milter.RespAccept, nil
+	}
+	return milter.RespContinue, nil
+}
+
 func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.Response, error) {
 	if strings.EqualFold(name, "From") {
 		s.headerFrom = value
@@ -193,7 +201,7 @@ func main() {
 		NewMilter: func() milter.Milter {
 			return &Session{}
 		},
-		Protocol: milter.OptNoConnect | milter.OptNoHelo | milter.OptNoMailFrom | milter.OptNoRcptTo | milter.OptNoBody,
+		Protocol: milter.OptNoConnect | milter.OptNoHelo | milter.OptNoRcptTo | milter.OptNoBody,
 	}
 
 	// Allows to set the permissions of the created unix socket
