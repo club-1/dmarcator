@@ -284,4 +284,14 @@ func testHeaders(t *testing.T, config string, headers []string, expectedAct *mil
 			t.Errorf("expected contains:\n%s\nactual:\n%s", expected, out.String())
 		}
 	}
+
+	// Assert all log lines are prefixed with the queue ID.
+	expectedPrefix := "QUEUEID:"
+	scanner := bufio.NewScanner(out)
+	for scanner.Scan() {
+		line := string(scanner.Bytes())
+		if !strings.HasPrefix(line, expectedPrefix) {
+			t.Errorf("expected log lines to be prefixed with: %q\nactual:\n%s", expectedPrefix, line)
+		}
+	}
 }
