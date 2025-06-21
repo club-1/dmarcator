@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"mime"
 	"net"
 	"net/textproto"
 	"os"
@@ -96,7 +97,12 @@ func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.
 
 	if s.fieldsFound&fieldFrom == 0 && strings.EqualFold(name, "From") {
 		s.fieldsFound |= fieldFrom
-		s.headerFrom = value
+		decoder := new(mime.WordDecoder)
+		if v, err := decoder.DecodeHeader(value); err == nil {
+			s.headerFrom = v
+		} else {
+			s.headerFrom = value
+		}
 		return milter.RespContinue, nil
 	}
 

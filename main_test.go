@@ -235,6 +235,24 @@ func TestMultipleFields(t *testing.T) {
 			output: []string{`accept dmarc=pass from=gmail.com addr="coucou@gmail.com"`},
 		},
 		{
+			name: "from mime encoded address",
+			headers: []string{
+				"Authentication-Results", "mail.club1.fr; dmarc=pass header.from=coucou.fr",
+				"From", "=?ISO-8859-1?Q?Aur=E9lien_COUDERC?= <libre@coucou.fr>",
+			},
+			action: &milter.Action{Code: milter.ActAccept},
+			output: []string{`accept dmarc=pass from=coucou.fr addr="Aurélien COUDERC <libre@coucou.fr>"`},
+		},
+		{
+			name: "from broken mime encoded",
+			headers: []string{
+				"Authentication-Results", "mail.club1.fr; dmarc=pass header.from=broken.com",
+				"From", "=?UTF-42?Q?Broken?= <coucou@broken.com>",
+			},
+			action: &milter.Action{Code: milter.ActAccept},
+			output: []string{`accept dmarc=pass from=broken.com addr="=?UTF-42?Q?Broken?= <coucou@broken.com>"`},
+		},
+		{
 			name: "multiple from",
 			headers: []string{
 				"Authentication-Results", "mail.club1.fr; dmarc=pass header.from=gmail.com",
