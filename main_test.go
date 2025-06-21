@@ -307,7 +307,7 @@ func testHeaders(t *testing.T, config string, headers []string, expectedAct *mil
 
 func TestAuthenticatedClient(t *testing.T) {
 	config := `ListenURI = "tcp://127.0.0.1:"`
-	network, address, _ := setup(t, config)
+	network, address, out := setup(t, config)
 
 	client := milter.NewClientWithOptions(network, address, milter.ClientOptions{
 		Dialer: &net.Dialer{},
@@ -329,5 +329,9 @@ func TestAuthenticatedClient(t *testing.T) {
 	expectedAct := &milter.Action{Code: milter.ActAccept}
 	if !reflect.DeepEqual(expectedAct, res) {
 		t.Errorf("expected %#v, got %#v", expectedAct, res)
+	}
+
+	if out.Len() != 0 {
+		t.Errorf("expected empty log output, got %q", out.String())
 	}
 }
