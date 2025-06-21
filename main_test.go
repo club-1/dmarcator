@@ -234,6 +234,26 @@ func TestMultipleFields(t *testing.T) {
 			action: &milter.Action{Code: milter.ActAccept},
 			output: []string{`accept dmarc=pass from=gmail.com addr="coucou@gmail.com"`},
 		},
+		{
+			name: "multiple from",
+			headers: []string{
+				"Authentication-Results", "mail.club1.fr; dmarc=pass header.from=gmail.com",
+				"From", "first@gmail.com",
+				"From", "second@gmail.com",
+			},
+			action: &milter.Action{Code: milter.ActAccept},
+			output: []string{`accept dmarc=pass from=gmail.com addr="first@gmail.com"`},
+		},
+		{
+			name: "more fields than needed",
+			headers: []string{
+				"Authentication-Results", "mail.club1.fr; dmarc=pass header.from=gmail.com",
+				"From", "Coucou <coucou@gmail.com>",
+				"Subject", "Hello world!",
+			},
+			action: &milter.Action{Code: milter.ActAccept},
+			output: []string{`accept dmarc=pass from=gmail.com addr="Coucou <coucou@gmail.com>"`},
+		},
 	}
 	config := `
 ListenURI = "tcp://127.0.0.1:"

@@ -55,8 +55,18 @@ var rejectDomains = make(map[string]bool)
 
 var l *log.Logger = log.New(os.Stderr, "", 0)
 
+const (
+	fieldAuthres = 1 << iota
+	fieldFrom
+
+	// Keep last
+	fieldLast
+	fieldAll = fieldLast - 1
+)
+
 type Session struct {
 	milter.NoOpMilter
+	fieldsFound  uint
 	dmarcResult  *authres.DMARCResult
 	shouldReject bool
 	headerFrom   string
@@ -80,34 +90,37 @@ func (s *Session) MailFrom(from string, m *milter.Modifier) (milter.Response, er
 }
 
 func (s *Session) Header(name string, value string, m *milter.Modifier) (milter.Response, error) {
-	if strings.EqualFold(name, "From") {
+	if s.fieldsFound == fieldAll {
+		return milter.RespContinue, nil
+	}
+
+	if s.fieldsFound&fieldFrom == 0 && strings.EqualFold(name, "From") {
+		s.fieldsFound |= fieldFrom
 		s.headerFrom = value
 		return milter.RespContinue, nil
 	}
-	if !strings.EqualFold(name, "Authentication-Results") {
-		return milter.RespContinue, nil
-	}
-	if s.dmarcResult != nil {
-		return milter.RespContinue, nil
-	}
-	queueID := m.Macros["i"]
-	id, results, err := authres.Parse(value)
-	if err != nil {
-		// Simply log in case we can't parse an AR header, because we cannot
-		// handle it better than that.
-		l.Printf("%s: failed to parse header: %v: %q", queueID, err, name+": "+value)
-		return milter.RespContinue, nil
-	}
 
-	if !strings.EqualFold(id, conf.AuthservID) {
-		// Not our Authentication-Results, ignore the field
-		return milter.RespContinue, nil
-	}
+	if s.fieldsFound&fieldAuthres == 0 && strings.EqualFold(name, "Authentication-Results") {
+		queueID := m.Macros["i"]
+		id, results, err := authres.Parse(value)
+		if err != nil {
+			// Simply log in case we can't parse an AR header, because we cannot
+			// handle it better than that.
+			l.Printf("%s: failed to parse header: %v: %q", queueID, err, name+": "+value)
+			return milter.RespContinue, nil
+		}
 
-	for _, result := range results {
-		if r, ok := result.(*authres.DMARCResult); ok {
-			s.dmarcResult = r
-			s.shouldReject = shouldRejectDMARCRes(r)
+		if !strings.EqualFold(id, conf.AuthservID) {
+			// Not our Authentication-Results, ignore the field
+			return milter.RespContinue, nil
+		}
+
+		for _, result := range results {
+			if r, ok := result.(*authres.DMARCResult); ok {
+				s.fieldsFound |= fieldAuthres
+				s.dmarcResult = r
+				s.shouldReject = shouldRejectDMARCRes(r)
+			}
 		}
 	}
 
