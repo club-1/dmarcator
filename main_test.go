@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 
@@ -53,8 +54,17 @@ func setup(t *testing.T, config string) (string, string, *bytes.Buffer) {
 	prevConf := conf
 	t.Cleanup(func() { conf = prevConf })
 
-	go main()
-	t.Cleanup(func() { syscall.Kill(syscall.Getpid(), syscall.SIGINT) })
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		main()
+		wg.Done()
+	}()
+	t.Cleanup(func() {
+		syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+		wg.Wait()
+	})
+
 	listener := readListener(t, r)
 	buf := &bytes.Buffer{}
 	l.SetOutput(buf)
