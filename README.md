@@ -37,11 +37,17 @@ Then:
 
     sudo systemd-tmpfiles --create
 
-Set the ListenURI in dmarcator's config file:
+Set the ListenURI in dmarcator's config file, and by the way, set the list of rejected domains:
 
 ```toml
 # /etc/dmarcator.conf
 ListenURI = "unix:///var/spool/postfix/dmarcator/dmarcator.sock"
+
+RejectDomains = [
+	# Add the domains you want to reject if they fail DMARC, for example:
+	"gmail.com",
+	"hotmail.fr",
+]
 ```
 
 Add dmarcator to postfix's milters in `/etc/postfix/main.cf`:
